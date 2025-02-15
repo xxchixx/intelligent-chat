@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import AuthStatus from "../components/AuthStatus"; // Import AuthStatus component
+import AuthStatus from "./AuthStatus"; // Import AuthStatus component
 
 const Chat = () => {
   const { data: session } = useSession();
