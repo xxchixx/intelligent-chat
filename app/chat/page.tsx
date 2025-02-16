@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Send } from "lucide-react"; 
 import Sidebar from '../components/Sidebar'; 
@@ -11,21 +11,49 @@ export default function ChatPage() {
   ]);
   const [newMessage, setNewMessage] = useState("");
 
-  const sendMessage = () => {
+  // Load messages from localStorage when component mounts
+  useEffect(() => {
+    const storedMessages = localStorage.getItem("chatMessages");
+    if (storedMessages) {
+      setMessages(JSON.parse(storedMessages));
+    }
+  }, []);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("chatMessages", JSON.stringify(messages));
+  }, [messages]);
+
+  const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
+    // Step 1: Add user message to the chat
     const userMessage = { id: messages.length + 1, text: newMessage, sender: "user" };
     setMessages([...messages, userMessage]);
     setNewMessage("");
-    // sendAIMessage();
+
+    // Step 2: Send message to the backend (my API route)
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: newMessage }),
+    });
+  
+     // Step 3: Handle the response from the backend (AI's reply)
+    const data = await res.json();  // Wait for the response
+
+    // Step 4: Add AI message to the chat
+    const aiMessage = {
+      id: messages.length + 2,
+      text: data.reply || "Sorry, something went wrong.",  // Default message if no reply
+      sender: "assistant",
+    };
+    setMessages((prevMessages) => [...prevMessages, aiMessage]);  // Add to chat
   };
 
-  const sendAIMessage = () => {
-    const newAIMessage = "I don't know";
-    const aiMessage = { id: messages.length + 1, text: newAIMessage, sender: "assistant" };
-    setMessages([...messages, aiMessage]);
-    setNewMessage("");
-  };
+
 
   return (
     <div className="flex-1 flex overflow-hidden">
@@ -76,5 +104,4 @@ export default function ChatPage() {
       </div>
     </div> 
   );
-}
-
+};
