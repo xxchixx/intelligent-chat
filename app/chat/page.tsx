@@ -1,89 +1,111 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Send } from "lucide-react"; 
 import Sidebar from '../components/Sidebar'; 
 
 export default function ChatPage() {
-  const { data: session } = useSession() || {}; // Fix for potential undefined error
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Welcome to the chat!", sender: "assistant" },
-  ]);
+  const { data: session, status } = useSession();
+  const [messages, setMessages] = useState<{ id: number; text: string; sender: string }[]>([]);
   const [newMessage, setNewMessage] = useState("");
-
-  // Load messages from localStorage when component mounts
+  const [currentChatId, setCurrentChatId] = useState<number | null>(null);
+ 
+  // Load messages from db
   useEffect(() => {
-    const storedMessages = localStorage.getItem("chatMessages");
-    if (storedMessages) {
-      setMessages(JSON.parse(storedMessages));
+    async function fetchMessages() {
+      try {
+        const response = await fetch(`/api/chat?userId=${session?.user?.id}`);
+        if (!response.ok) throw new Error("Failed to load messages");
+        const data = await response.json();
+        // Assuming your API returns messages with fields id, content, and sender
+        const formattedMessages = data.messages.map((msg: { id: any; content: any; sender: any; }) => ({
+          id: msg.id,
+          text: msg.content,
+          sender: msg.sender,
+        }));
+        setMessages(formattedMessages);
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+      }
     }
-  }, []);
-
-  // Save messages to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem("chatMessages", JSON.stringify(messages));
-  }, [messages]);
+    if (session) {
+      fetchMessages();
+    }
+  }, [session]);
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
 
-    // Step 1: Add user message to the chat
+    // Create user message object
     const userMessage = { id: messages.length + 1, text: newMessage, sender: "user" };
-    setMessages([...messages, userMessage]);
+    
+    // Immediately update UI with user message
+    setMessages((prevMessages) => [...prevMessages, userMessage]);
     setNewMessage("");
 
-    // Step 2: Send message to the backend (my API route)
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ message: newMessage }),
-    });
-  
-     // Step 3: Handle the response from the backend (AI's reply)
-    const data = await res.json();  // Wait for the response
+    console.log("Sending message to API:", newMessage);
 
-    // Step 4: Add AI message to the chat
-    const aiMessage = {
-      id: messages.length + 2,
-      text: data.reply || "Sorry, something went wrong.",  // Default message if no reply
-      sender: "assistant",
-    };
-    setMessages((prevMessages) => [...prevMessages, aiMessage]);  // Add to chat
-  };
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: session?.user?.id,
+          chatId: currentChatId,
+          message: newMessage,
+        }),
+      });
 
 
+      if (!response.ok) throw new Error("Failed to save chat");
+
+      const updatedChat = await response.json();
+      console.log("Updated chat:", updatedChat);
+
+      // Extract AI response message
+      const aiResponseMessage = updatedChat.messages.find((msg: { sender: string }) => msg.sender === "assistant");
+
+      if (aiResponseMessage) {
+        const aiMessage = {
+          id: messages.length + 1, // Ensure AI message has a unique ID
+          text: aiResponseMessage.content || "Sorry, something went wrong.",
+          sender: "assistant",
+        };
+
+  // Append AI response to chat
+  setMessages((prevMessages) => [...prevMessages, aiMessage ]);
+  setCurrentChatId(updatedChat.chatId);
+} else {
+  console.error("AI response not found", updatedChat);
+}
+
+
+    } catch (error) {
+      console.error("Error saving chat:", error);
+    }
+};
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      {/* Sidebar (Fixed Width) */}
       <Sidebar />
-
-      {/* Chat Area (Takes Remaining Space) */}
       <div className="flex-1 flex flex-col bg-gradient-to-r from-cyan-500 via-indigo-500 to-sky-500">
-        {/* Chat Container */}
         <div className="w-full max-w-3xl mx-auto h-[80vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden my-[5vh]">
-          {/* Chat Header */}
-          <div className="p-4 bg-indigo-500 text-white text-center text-xl font-bold flex justify-between items-center">
-            Chat with AI
-          </div>
-
-          {/* Chat Messages */}
+          <div className="p-4 bg-indigo-500 text-white text-center text-xl font-bold">Chat with AI</div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`p-3 rounded-lg max-w-xs ${
-                  msg.sender === "user" ? "ml-auto overflow-x-hidden break-words bg-green-400 text-white" : "bg-gray-200 text-gray-800"
+                  msg.sender === "user" 
+                  ? "ml-auto overflow-x-hidden break-words bg-green-400 text-white" 
+                  : "bg-gray-200 text-gray-800"
                 }`}
               >
                 {msg.text}
               </div>
             ))}
           </div>
-
-          {/* Chat Input */}
           <div className="p-4 flex items-center bg-gray-100 border-t">
             <input
               type="text"
@@ -104,4 +126,4 @@ export default function ChatPage() {
       </div>
     </div> 
   );
-};
+}

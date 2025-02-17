@@ -27,6 +27,7 @@ model Chat {
   userId   Int
   user     User      @relation(fields: [userId], references: [id])
   messages Message[]
+  createdAt DateTime  @default(now()) // Automatically set creation time
 }
 
 model Message {
@@ -34,11 +35,13 @@ model Message {
   content String
   chatId  Int
   chat    Chat   @relation(fields: [chatId], references: [id])
+  sender    String @default("user") // tracks who sent the message (user/assistant)
+  createdAt DateTime  @default(now()) // Automatically set creation time
 }
 
 model Session {
   id        Int      @id @default(autoincrement())
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) // Automatically set creation time
 }
