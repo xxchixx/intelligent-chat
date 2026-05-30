@@ -30,13 +30,11 @@ __Clone the Repository__
 __Install Dependencies__
 * npm install
 
-__Configure Environment Variables__
-Create a .env file in the project root and configure the required variables:
+__Configure Environment Variables__:Create a .env file in the project root and configure the required variables:
 * DATABASE_URL=your_postgresql_connection_string
 * NEXTAUTH_SECRET=your_secret
 * OPENAI_API_KEY=your_openai_api_key
 
-__Run the Application__
-npm run dev
+__Run the Application__:npm run dev
 
 Open: http://localhost:3000
